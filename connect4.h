@@ -212,7 +212,7 @@ bool checkDiagonalLine()
     return false;
 }
 
-void checkIfPlayerHasWon() //if any win condition met player wins
+void checkIfPlayerHasWon() //if any win condition is met player wins
 {
     winnerFound = false;
     
@@ -254,7 +254,7 @@ void checkGameFinished()
     }
     else
     {
-        checkForFullBoard;
+        checkForFullBoard();
     }
 
 }
