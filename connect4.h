@@ -1,277 +1,427 @@
 #include <iostream>
+#include <array>
+
 
 using namespace std;
 
-//------GLOBAL CONSTANT DECLARATION-------//
-const string BLANK = " ";
-const string P1 = "\033[1;31mO\033[1;0m"; //sets P1 to a red "O"
-const string P2 = "\033[1;33mO\033[1;0m"; //sets P2 to a yellow "O"
+// constants declaration
+unsigned const int COL = 7; // dimensions of the board
+unsigned const int ROW = 6;
+unsigned const int PLAYER_ONE = 1; 
+unsigned const int PLAYER_TWO = 2; 
+unsigned const int MAX_DEPTH = 5; 
+const string YELLOW = "\033[1;33mO\033[1;0m";
+const string RED = "\033[1;31mO\033[1;0m";
+
+// function declarations
+void outputBoard(array<array<int, COL>, ROW>&);
+int humanMove();
+void makeMove(array<array<int, COL>, ROW>&, int, int);
+int aiMove();
+array<array<int, COL>, ROW> copyBoard(array<array<int, COL>, ROW>&);
+bool winningMove(array<array<int, COL>, ROW>&, int);
+int scoreSet(array<int, 4>, int);
+int tabScore(array<array<int, COL>, ROW>, int);
+array<int, 2> miniMax(array<array<int, COL>, ROW>&, int, int, int, int);
+int heurFunction(int, int, int);
+
+bool gameFinished = false; // flag for if game is over
+int turns = 0; // count for # turns
+int thisPlayer = PLAYER_ONE; // current player
+
+array<array<int, COL>, ROW> board; // the game board
+
+/**
+ * game playing function
+ * loops between players while they take turns
+ */
+void playAgainstAi() {
+	outputBoard(board); // print initial board
+	while (!gameFinished) { // while no game over state
+		
+		if (turns >= ROW * COL) { // if max number of turns reached
+			gameFinished = true;
+			cout << "Draw!" << endl;
+			return;
+		}
+		else if (thisPlayer == PLAYER_TWO) { // AI move
+			makeMove(board, aiMove(), PLAYER_TWO);
+		}
+		else if (thisPlayer == PLAYER_ONE) { // player move
+			makeMove(board, humanMove(), PLAYER_ONE);
+		}
+	
+
+		gameFinished = winningMove(board, thisPlayer); // check if player won
+		thisPlayer = (thisPlayer == 1) ? 2 : 1; // switch player
+		turns++; // iterate number of turns
+		cout <<  "turn: "<< turns << endl;
+		outputBoard(board); // print board after successful move
+	}
+	cout << ((thisPlayer == PLAYER_ONE) ? YELLOW + " has won!" : RED + " has won!") << endl;
+	
+}
 
 
-//----GLOBAL VARIABLE DECLARATION---------//
-string board[6][7];
-short int thisPlayer;   // used as an index for player[], P1 will be 0(red) P2 comp or human will be 1(yellow) 
-string player[2] = 
+void playAgaintHuman() {
+	outputBoard(board); // print initial board
+	while (!gameFinished) { // while no game over state
+		
+		if (turns >= ROW * COL) { // if max number of turns reached
+			gameFinished = true;
+			cout << "Draw!" << endl;
+			return;
+		}
+		else if (thisPlayer == PLAYER_TWO) { // AI move
+			makeMove(board, humanMove(), PLAYER_TWO);
+		}
+		else if (thisPlayer == PLAYER_ONE) { // player move
+			makeMove(board, humanMove(), PLAYER_ONE);
+		}
+		
+		gameFinished = winningMove(board, thisPlayer); // check if player won
+		thisPlayer = (thisPlayer == 1) ? 2 : 1; // switch player
+		turns++; // iterate number of turns
+		cout <<  "turn: "<< turns << endl;
+		outputBoard(board); // print board after successful move
+	}
+	
+	cout << ((thisPlayer == PLAYER_ONE) ? YELLOW + " has won!" : RED + " has won!") << endl;
+
+}
+
+/**
+ * function that makes the move for the player
+ * @param b - the board to make move on
+ * @param c - column to drop piece into
+ * @param p - the current player
+ */
+void makeMove(array<array<int, COL>, ROW>& b, int c, int p) {
+	// start from bottom of board going up
+	for (unsigned int r = 0; r < ROW; r++) {
+		if (b[r][c] == 0) { // first available spot
+			b[r][c] = p; // set piece
+			break;
+		}
+	}
+}
+
+/**
+ * prompts the user for their move
+ * and ensures valid user input
+ * @return the user chosen column
+ */
+int humanMove() {
+	int move = -1; // temporary
+	while (true) { // repeat until proper input given
+
+		
+		cout << ((thisPlayer == PLAYER_ONE) ? RED + "'s Turn: " : YELLOW + "'s Turn: ");
+		cin >> move; // init move as input
+		if (cin.fail()) { // if non-integer
+			cin.clear();
+			cin.ignore();
+			cout << "enter a number (0-6)" << endl; // let user know
+		}
+		else if (!((unsigned int)move < COL && move >= 0)) { // if out of bounds
+			cout << "enter a number (0-6)" << endl; // let user know
+		}
+		else if (board[ROW - 1][move] != 0) { // if full column
+			cout << "column is full" << endl;; // let user know
+		}
+		else { // if it gets here, input valid
+			break;
+		}
+		cout << endl << endl;
+	}
+	return move;
+}
+
+/**
+ * AI "think" algorithm
+ * uses minimax to find ideal move
+ * @return - the column number for best move
+ */
+int aiMove() {
+	cout << "AI is thinking about a move..." << endl;
+	return miniMax(board, MAX_DEPTH, 0 - INT_MAX, INT_MAX, PLAYER_TWO)[1];
+}
+
+/**
+ * Minimax implementation using alpha-beta pruning
+ * @param b - the board to perform MM on
+ * @param d - the current depth
+ * @param alf - alpha
+ * @param bet - beta
+ * @param p - current player
+ */
+array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, int p) {
+	/**
+	 * if we've reached minimal depth allowed by the program
+	 * we need to stop, so force it to return current values
+	 * since a move will never (theoretically) get this deep,
+	 * the column doesn't matter (-1) but we're more interested
+	 * in the score
+	 *
+	 * as well, we need to take into consideration how many moves
+	 * ie when the board is full
+	 */
+	if (d == 0 || d >= (COL * ROW) - turns) {
+		// get current score to return
+		return array<int, 2>{tabScore(b, PLAYER_TWO), -1};
+	}
+	if (p == PLAYER_TWO) { // if AI player
+		array<int, 2> moveSoFar = {INT_MIN, -1}; 
+		if (winningMove(b, PLAYER_ONE)) { 
+			return moveSoFar; 
+		} 
+		for (unsigned int c = 0; c < COL; c++) { 
+			if (b[ROW - 1][c] == 0) { 
+				array<array<int, COL>, ROW> newBoard = copyBoard(b); 
+				makeMove(newBoard, c, p); 
+				int score = miniMax(newBoard, d - 1, alf, bet, PLAYER_ONE)[0]; // find move based on that new board state
+				if (score > moveSoFar[0]) { // if better score, replace it, and consider that best move (for now)
+					moveSoFar = {score, (int)c};
+				}
+				alf = max(alf, moveSoFar[0]);
+				if (alf >= bet) { break; } // for pruning
+			}
+		}
+		return moveSoFar; // return best possible move
+	}
+	else {
+		array<int, 2> moveSoFar = {INT_MAX, -1}; 
+		if (winningMove(b, PLAYER_TWO)) {
+			return moveSoFar; 
+		}
+		for (unsigned int c = 0; c < COL; c++) {
+			if (b[ROW - 1][c] == 0) {
+				array<array<int, COL>, ROW> newBoard = copyBoard(b);
+				makeMove(newBoard, c, p);
+				int score = miniMax(newBoard, d - 1, alf, bet, PLAYER_TWO)[0];
+				if (score < moveSoFar[0]) {
+					moveSoFar = {score, (int)c};
+				}
+				bet = min(bet, moveSoFar[0]);
+				if (alf >= bet) { break; }
+			}
+		}
+		return moveSoFar;
+	}
+}
+
+/**
+ * function to tabulate current board "value"
+ * @param b - the board to evaluate
+ * @param p - the player to check score of
+ * @return - the board score
+ */
+int tabScore(array<array<int, COL>, ROW> b, int p) {
+	int score = 0;
+	array<int, COL> rs;
+	array<int, ROW> cs;
+	array<int, 4> set;
+	/**
+	 * horizontal checks, we're looking for sequences of 4
+	 * containing any combination of AI, PLAYER, and empty pieces
+	 */
+	for (int r = 0; r < ROW; r++) {
+		for (int c = 0; c < COL; c++) {
+			rs[c] = b[r][c]; // this is a distinct row alone
+		}
+		for (int c = 0; c < COL - 3; c++) {
+			for (int i = 0; i < 4; i++) {
+				set[i] = rs[c + i]; // for each possible "set" of 4 spots from that row
+			}
+			score += scoreSet(set, p); // find score
+		}
+	}
+	// vertical
+	for (int c = 0; c < COL; c++) {
+		for (int r = 0; r < ROW; r++) {
+			cs[r] = b[r][c];
+		}
+		for (unsigned int r = 0; r < ROW - 3; r++) {
+			for (int i = 0; i < 4; i++) {
+				set[i] = cs[r + i];
+			}
+			score += scoreSet(set, p);
+		}
+	}
+	// diagonals
+	for (unsigned int r = 0; r < ROW - 3; r++) {
+		for (unsigned int c = 0; c < COL; c++) {
+			rs[c] = b[r][c];
+		}
+		for (unsigned int c = 0; c < COL - 3; c++) {
+			for (int i = 0; i < 4; i++) {
+				set[i] = b[r + i][c + i];
+			}
+			score += scoreSet(set, p);
+		}
+	}
+	for (unsigned int r = 0; r < ROW - 3; r++) {
+		for (unsigned int c = 0; c < COL; c++) {
+			rs[c] = b[r][c];
+		}
+		for (unsigned int c = 0; c < COL - 3; c++) {
+			for (int i = 0; i < 4; i++) {
+				set[i] = b[r + 3 - i][c + i];
+			}
+			score += scoreSet(set, p);
+		}
+	}
+	return score;
+}
+
+/**
+ * function to find the score of a set of 4 spots
+ * @param v - the row/column to check
+ * @param p - the player to check against
+ * @return - the score of the row/column
+ */
+int scoreSet(array<int, 4> v, int p) {
+	unsigned int good = 0; // points in favor of p
+	unsigned int bad = 0; // points against p
+	unsigned int empty = 0; // neutral spots
+	for (unsigned int i = 0; i < v.size(); i++) { // just enumerate how many of each
+		good += (v[i] == p) ? 1 : 0;
+		bad += (v[i] == PLAYER_ONE || v[i] == PLAYER_TWO) ? 1 : 0;
+		empty += (v[i] == 0) ? 1 : 0;
+	}
+	// bad was calculated as (bad + good), so remove good
+	bad -= good;
+	return heurFunction(good, bad, empty);
+}
+
+/**
+ * heuristic function helps ai decide what patterns to prioritizw
+ * 
+ * @param g - good points
+ * @param b - bad points
+ * @param z - empty spots
+ * @return - the final score
+ */
+int heurFunction(int g, int b, int z) {
+	int score = 0;
+	if (g == 4) { score += 200001; } // preference to go for winning move vs. block
+	else if (g == 3 && z == 1) { score += 2000; }
+	else if (g == 2 && z == 2) { score += 200; }
+	else if (b == 2 && z == 2) { score -= 201; } 
+	else if (b == 3 && z == 1) { score -= 2001; } 
+	else if (b == 4) { score -= 200000; }
+	return score;
+}
+
+/**
+ * function to determine if move winning
+ * @param b - the board to check
+ * @param p - the player to check against
+ * @return - whether that player can have a winning move
+ */
+bool winningMove(array<array<int, COL>, ROW>& b, int p) {
+	unsigned int winSequence = 0; // to count adjacent pieces
+	// for horizontal checks
+	for (unsigned int c = 0; c < COL - 3; c++) { // for each column
+		for (unsigned int r = 0; r < ROW; r++) { // each row
+			for (int i = 0; i < 4; i++) { // recall you need 4 to win
+				if ((unsigned int)b[r][c + i] == p) { // if not all pieces match
+					winSequence++; // add sequence count
+				}
+				if (winSequence == 4) { return true; } // if 4 in row
+			}
+			winSequence = 0; // reset counter
+		}
+	}
+	// vertical checks
+	for (unsigned int c = 0; c < COL; c++) {
+		for (unsigned int r = 0; r < ROW - 3; r++) {
+			for (int i = 0; i < 4; i++) {
+				if ((unsigned int)b[r + i][c] == p) {
+					winSequence++;
+				}
+				if (winSequence == 4) { return true; }
+			}
+			winSequence = 0;
+		}
+	}
+	// the below two are diagonal checks
+	for (unsigned int c = 0; c < COL - 3; c++) {
+		for (unsigned int r = 3; r < ROW; r++) {
+			for (int i = 0; i < 4; i++) {
+				if ((unsigned int)b[r - i][c + i] == p) {
+					winSequence++;
+				}
+				if (winSequence == 4) { return true; }
+			}
+			winSequence = 0;
+		}
+	}
+	for (unsigned int c = 0; c < COL - 3; c++) {
+		for (unsigned int r = 0; r < ROW - 3; r++) {
+			for (int i = 0; i < 4; i++) {
+				if ((unsigned int)b[r + i][c + i] == p) {
+					winSequence++;
+				}
+				if (winSequence == 4) { return true; }
+			}
+			winSequence = 0;
+		}
+	}
+	return false; // otherwise no winning move
+}
+
+/**
+ * sets up the board to be filled with empty spaces
+ * also used to reset the board to this state
+ */
+void initBoard() {
+	for (unsigned int r = 0; r < ROW; r++) {
+		for (unsigned int c = 0; c < COL; c++) {
+			board[r][c] = 0; // make sure board is empty initially
+		}
+	}
+}
+
+/**
+ * function to copy board state to another 2D vector
+ * ie. make a duplicate board; used for mutating copies rather
+ * than the original
+ * @param b - the board to copy
+ * @return - said copy
+ */
+array<array<int, COL>, ROW> copyBoard(array<array<int, COL>, ROW>& b) {
+	array<array<int, COL>, ROW> newBoard;
+	for (unsigned int r = 0; r < ROW; r++) {
+		for (unsigned int c = 0; c < COL; c++) {
+			newBoard[r][c] = b[r][c]; // just straight copy
+		}
+	}
+	return newBoard;
+}
+
+/**
+ * prints the board to console out
+ * @param b - the board to print
+ */
+void outputBoard(array<array<int, COL>, ROW>& b)
 {
-    "\033[1;31mO\033[1;0m", "\033[1;33mO\033[1;0m"
-};
-
-
-bool gameFinished, winnerFound;
-int validColumn, validRow; // holds the chip being added 
-
-//--------FUNCTION HEADERS-----------------//
-
-void initialiseBoard(); //TO SET ALL VALUES IN THE ARRAY TO BLANK
-void outputBoard(); //DISPLAYS THE BOARD
-void initializeGame(); //SETS PLAYER TO 1 AND STARTS GAME
-bool isColumnValid(int column); // CHECKS IF THE COLUMN CHOSEN BY THE PLAYER IS WITHIN THE BOARD AND HAS SPACE 
-int chooseColumn(); // PROMPTS THE PLAYER FOR AN INPUT AND RETURNS IF VALID
-int findFreeRow(); // CHECKS HOW FAR DOWN THE CHIP CAN FALL AND RETURNS THE ROW THE CHIP LANDS IN
-void dropChip(); // CHANGES THE THE VALUE OF THE ARRAY ACCORDING TO THE ROW AND COLUMN
-
-// CHECKS IF WIN CONDTIONS ARE MET
-bool checkDiagonalLine(); 
-bool checkVerticalLine();
-bool checkHorizontal();
-
-void checkIfPlayerHasWon(); // IF ANY WIN CONDITION MET PLAYER WINS
-void swapPlayer(); // CHANGES PLAYER 1 TO 2 AD 2 TO 1
-void checkForFullBoard(); //IF NO BLANK SPACES FOUND FINISHES GAME
-void checkGameFinished(); // IF ANY PLAYER WON OR BOARD FILLED GAME ENDS
-
-
-
-
-
-
-//-----FUNCTIONS FOR INTITIAL SETUP-------//
-void initialiseBoard()
-{
-    for(int row = 0; row < 6; row++)
-    {
-        for(int column = 0; column <7; column++)
-        {
-            board[row][column] = BLANK;
-        }
+    for (unsigned int i = 0; i < COL; i++) {
+		cout << "  " << i;
+	}
+    cout << endl << " ";
+	
+	for (unsigned int r = 0; r < ROW; r++) {
+		for (unsigned int c = 0; c < COL; c++) {
+			cout << "[";
+			switch (b[ROW - r - 1][c]) {
+			case 0: cout << " ]"; break; // no piece
+			case 1: cout << RED + "]"; break; // one player's piece
+			case 2: cout << YELLOW + "]"; break; // other player's piece
+			}
+			
+		}
+		cout << endl << " ";
     }
+	cout << endl;
 }
-
-void outputBoard()  //builds the board from top to bottom (standard cartesian co-ordinate system followed with origin at bottom left)
-{
-    for(int row = 5; row >= 0; row--)
-    {
-        for(int column = 0; column <7; column++)
-        {
-            cout << "[" << board[row][column] << "]";
-        }
-        cout << endl;
-    }
-}
-
-void initializeGame()
-{
-    thisPlayer = 0; // P1(red) goes first
-    gameFinished = false;
-
-}
-
-
-//----------FUNCTIONS FOR MAKING A MOVE--------//
-bool isColumnValid(int column)
-{
-    if(column >= 0 && column <=6)
-    {
-        if(board[5][column] == BLANK)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-int chooseColumn() //Used to prompt an input, validates it and returns it.
-{
-    int col;
-    string player = (thisPlayer == 0) ? "Red" : "Yellow";
-    cout << player << " player's turn: " << endl;
-    do
-    {
-        cout << "Please Enter a valid column number: ";
-        try
-        {
-            cin >> col;
-            col--; // the user will enter 1-7 but the array indexes go from 0-6 so 1 is subtracted
-        }
-        catch(const std::exception& e) //in case the user enters a non-integer the program wont terminate but rather display the error
-        {
-            cout<< "error: " << e.what() << endl;
-        }
-        
-    }while(isColumnValid(col) == false);
-    return col;
-}
-
-int findFreeRow()
-{
-    int freerow = 0;
-    while(board[freerow][validColumn] != BLANK)
-    {
-        freerow++;
-    }
-    return freerow;
-}
-
-void dropChip()
-{
-    validColumn = chooseColumn();
-    validRow = findFreeRow();
-
-    board[validRow][validColumn] = player[thisPlayer]; //sets the value  of the chip corresponding to the player  
-}
-
-
-//-------------------Functions to check for victory conditions
-
-bool checkHorizontal()
-{
-    for(int i = 0; i<=3; i++)
-    {
-        if //checks if 4 horizontal chips belong to the same player
-        (
-            board[validRow][i] == player[thisPlayer] &&
-            board[validRow][i+1] == player[thisPlayer] &&
-            board[validRow][i+2] == player[thisPlayer] &&
-            board[validRow][i+3] == player[thisPlayer]
-        )
-        {
-            cout << "horizontal win";
-            return true;
-        }
-    }
-    return false;
-}
-
-bool checkVerticalLine()
-{
-   for(int i = 3; i<=5; i++)
-    {
-        if //checks if 4 vertical chips belong to the same player
-        (
-            board[i][validColumn] == player[thisPlayer] &&
-            board[i - 1][validColumn] == player[thisPlayer] &&
-            board[i - 2][validColumn] == player[thisPlayer] &&
-            board[i - 3][validColumn] == player[thisPlayer]
-        )
-        {
-            cout << "vertical win";
-            return true;
-        }
-    } 
-    return false;
-
-}
-
-bool checkDiagonalLine() 
-{
-    for(int validColumn = 0; validColumn <=3; validColumn++) //for diagonals tilted to the right 
-    {
-        for(int validRow = 0; validRow <=2; validRow++)
-        {   
-            if
-            (
-                board[validRow][validColumn] == player[thisPlayer] &&
-                board[validRow + 1][validColumn + 1] == player[thisPlayer] &&
-                board[validRow + 2][validColumn + 2] == player[thisPlayer] &&
-                board[validRow + 3][validColumn + 3] == player[thisPlayer]
-            )
-            {
-                return true;
-            }
-        
-        }
-    }
-
-    for(int validColumn = 0; validColumn <=3; validColumn++) //for diagonals tilted left
-    {
-        for(int validRow = 3; validRow <=5; validRow++)
-        {   
-            if
-            (
-                board[validRow][validColumn] == player[thisPlayer] &&
-                board[validRow - 1][validColumn + 1] == player[thisPlayer] &&
-                board[validRow - 2][validColumn + 2] == player[thisPlayer] &&
-                board[validRow - 3][validColumn + 3] == player[thisPlayer]
-            )
-            {
-                return true;
-            }
-        
-        }
-    }
-    return false;
-}
-
-void checkIfPlayerHasWon() //if any win condition is met player wins
-{
-    winnerFound = false;
-    
-    winnerFound = checkHorizontal() || checkVerticalLine() || checkDiagonalLine();  
-}
-
-void checkForFullBoard()
-{
-    bool blankFound = false;
-    int column, row;
-
-    do
-    {   
-        do
-        {
-            if(board[row][column] == BLANK)
-            {
-                blankFound = true;
-            }
-
-        } while (column < 6 && !blankFound);  
-
-    } while (row < 5 && !blankFound);
-    if (!blankFound)
-    {
-        cout << "It is a draw" << endl;
-        gameFinished = true;
-    }   
-}
-
-void checkGameFinished()
-{
-    winnerFound = false;
-    checkIfPlayerHasWon();
-    if (winnerFound)
-    {
-        gameFinished = true;
-        cout << player[thisPlayer] << " has won!";
-    }
-    else
-    {
-        checkForFullBoard();
-    }
-
-}
-
-void swapPlayer()
-{
-    if(thisPlayer == 0)
-    {
-        thisPlayer++;
-    }
-    else
-    {
-        thisPlayer--;
-    }
-}
-
-
-
-
-
