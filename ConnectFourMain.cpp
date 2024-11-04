@@ -1,5 +1,5 @@
 #include <iostream>
-#include "cf_array.h"
+#include "cf.h"
 
 using namespace std;
 
