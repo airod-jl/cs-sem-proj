@@ -52,7 +52,7 @@ void playAgainstAi() {
 			makeMove(board, aiMove(), PLAYER_TWO);
 		}
 		else if (thisPlayer == PLAYER_ONE) { // player move
-			makeMove(board, aiMove(), PLAYER_ONE);
+			makeMove(board, humanMove(), PLAYER_ONE);
 		}
 	
 
