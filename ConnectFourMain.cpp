@@ -33,5 +33,11 @@ int main() {
 		playAgaintHuman();
 	}
 
+
+
+	cout << " \n press enter to exit";
+	cin.ignore();
+	cin.get();
+
 	return 0;
 }
