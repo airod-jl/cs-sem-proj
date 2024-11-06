@@ -13,6 +13,10 @@ unsigned const int MAX_DEPTH = 5;
 const string YELLOW = "\033[1;33mO\033[1;0m";
 const string RED = "\033[1;31mO\033[1;0m";
 
+const int MAX_INT = 2147483647;
+const int MIN_INT = -2147483647;
+
+
 // function declarations
 void outputBoard(array<array<int, COL>, ROW>&);
 int humanMove();
@@ -48,7 +52,7 @@ void playAgainstAi() {
 			makeMove(board, aiMove(), PLAYER_TWO);
 		}
 		else if (thisPlayer == PLAYER_ONE) { // player move
-			makeMove(board, humanMove(), PLAYER_ONE);
+			makeMove(board, aiMove(), PLAYER_ONE);
 		}
 	
 
@@ -144,7 +148,41 @@ int humanMove() {
  */
 int aiMove() {
 	cout << "AI is thinking about a move..." << endl;
-	return miniMax(board, MAX_DEPTH, 0 - INT_MAX, INT_MAX, PLAYER_TWO)[1];
+	for (int col = 0; col < COL; col++) {
+        if (board[ROW - 1][col] == 0) { // Check if the column is not full
+            // Simulate the move
+            for (unsigned int r = 0; r < ROW; r++) {
+                if (board[r][col] == 0) { // Find the first available spot
+                    board[r][col] = PLAYER_TWO; // Make the move
+                    if (winningMove(board, PLAYER_TWO)) {
+                        board[r][col] = 0; // Undo the move
+                        return col; // Winning move found
+                    }
+                    board[r][col] = 0; // Undo the move
+                    break; // Exit the loop after making the move
+                }
+            }
+        }
+    }
+
+    // Check if the opponent can win in the next move and block it
+    for (int col = 0; col < COL; col++) {
+        if (board[ROW - 1][col] == 0) { // Check if the column is not full
+            // Simulate the move for the opponent
+            for (unsigned int r = 0; r < ROW; r++) {
+                if (board[r][col] == 0) { // Find the first available spot
+                    board[r][col] = PLAYER_ONE; // Make the opponent's move
+                    if (winningMove(board, PLAYER_ONE)) {
+                        board[r][col] = 0; // Undo the move
+                        return col; // Block the opponent's winning move
+                    }
+                    board[r][col] = 0; // Undo the move
+                    break; // Exit the loop after making the move
+                }
+            }
+        }
+    }
+	return miniMax(board, MAX_DEPTH, 0 - MAX_INT, MAX_INT, PLAYER_TWO)[1];
 }
 
 /**
@@ -171,9 +209,10 @@ array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, i
 		return array<int, 2>{tabScore(b, PLAYER_TWO), -1};
 	}
 	if (p == PLAYER_TWO) { // if AI player
-		array<int, 2> moveSoFar = {INT_MIN, -1}; 
+		array<int, 2> moveSoFar = {MIN_INT, -1};
+
 		if (winningMove(b, PLAYER_ONE)) { 
-			return moveSoFar; 
+			return {MIN_INT + 1, -1}; 
 		} 
 		for (unsigned int c = 0; c < COL; c++) { 
 			if (b[ROW - 1][c] == 0) { 
@@ -190,10 +229,11 @@ array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, i
 		return moveSoFar; // return best possible move
 	}
 	else {
-		array<int, 2> moveSoFar = {INT_MAX, -1}; 
-		if (winningMove(b, PLAYER_TWO)) {
-			return moveSoFar; 
-		}
+		array<int, 2> moveSoFar = {MAX_INT, -1}; 
+		if (winningMove(b, PLAYER_TWO)) 
+		{ 
+			return {MAX_INT -1, -1}; 
+		} 
 		for (unsigned int c = 0; c < COL; c++) {
 			if (b[ROW - 1][c] == 0) {
 				array<array<int, COL>, ROW> newBoard = copyBoard(b);
@@ -260,13 +300,13 @@ int tabScore(array<array<int, COL>, ROW> b, int p) {
 			score += scoreSet(set, p);
 		}
 	}
-	for (unsigned int r = 0; r < ROW - 3; r++) {
+	for (unsigned int r = 3; r < ROW ; r++) {
 		for (unsigned int c = 0; c < COL; c++) {
 			rs[c] = b[r][c];
 		}
 		for (unsigned int c = 0; c < COL - 3; c++) {
 			for (int i = 0; i < 4; i++) {
-				set[i] = b[r + 3 - i][c + i];
+				set[i] = b[r - i][c + i];
 			}
 			score += scoreSet(set, p);
 		}
@@ -304,12 +344,14 @@ int scoreSet(array<int, 4> v, int p) {
  */
 int heurFunction(int g, int b, int z) {
 	int score = 0;
-	if (g == 4) { score += 200001; } // preference to go for winning move vs. block
-	else if (g == 3 && z == 1) { score += 2000; }
-	else if (g == 2 && z == 2) { score += 200; }
-	else if (b == 2 && z == 2) { score -= 201; } 
-	else if (b == 3 && z == 1) { score -= 2001; } 
+	if (g == 4) { score += 100000; } // preference to go for winning move vs. block
+	else if (g == 3 && z == 1) { score += 5000; }
+	else if (g == 2 && z ==1)	{score +=1000;}
+	else if (b == 2 && z == 2) { score -= 100; } 
+	else if (b == 3 && z == 1) { score -= 20000; }
+	else if (g == 1) {score +=10;} 
 	else if (b == 4) { score -= 200000; }
+	
 	return score;
 }
 
