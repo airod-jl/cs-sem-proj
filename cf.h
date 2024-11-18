@@ -1,3 +1,8 @@
+#ifndef CF_SFML_H
+#define CF_SFML_H
+
+#include "cfSFML.h"
+#include <SFML/Graphics.hpp>
 #include <iostream>
 #include <array>
 
@@ -9,13 +14,21 @@ unsigned const int COL = 7; // dimensions of the board
 unsigned const int ROW = 6;
 unsigned const int PLAYER_ONE = 1; 
 unsigned const int PLAYER_TWO = 2; 
-unsigned const int MAX_DEPTH = 5; 
+unsigned const int MAX_DEPTH = 7; 
 const string YELLOW = "\033[1;33mO\033[1;0m";
 const string RED = "\033[1;31mO\033[1;0m";
 
 const int MAX_INT = 2147483647;
 const int MIN_INT = -2147483647;
 
+const int CELL_SIZE = 100;
+const int WINDOW_WIDTH = COL * CELL_SIZE;
+const int WINDOW_HEIGHT = ROW * CELL_SIZE;
+
+extern bool gameFinished;
+extern int turns;
+extern int thisPlayer;
+extern array<array<int, COL>, ROW> board;
 
 // function declarations
 void outputBoard(array<array<int, COL>, ROW>&);
@@ -28,67 +41,32 @@ int scoreSet(array<int, 4>, int);
 int tabScore(array<array<int, COL>, ROW>, int);
 array<int, 2> miniMax(array<array<int, COL>, ROW>&, int, int, int, int);
 int heurFunction(int, int, int);
+void displayBoardHuman(array<array<int, COL>, ROW>& board);
+void displayBoardAI(array<array<int, COL>, ROW>& board);
+void displayPlayerMessage(int player);
 
 bool gameFinished = false; // flag for if game is over
-int turns = 0; // count for # turns
+int turns = 0; // count for number of turns
 int thisPlayer = PLAYER_ONE; // current player
 
-array<array<int, COL>, ROW> board; // the game board
+array<array<int, COL>, ROW> board; // board declaration
 
 /**
  * game playing function
- * loops between players while they take turns
+ * loops between player and ai as they take turns
  */
 void playAgainstAi() {
-	outputBoard(board); // print initial board
-	while (!gameFinished) { // while no game over state
-		
-		if (turns >= ROW * COL) { // if max number of turns reached
-			gameFinished = true;
-			cout << "Draw!" << endl;
-			return;
-		}
-		else if (thisPlayer == PLAYER_TWO) { // AI move
-			makeMove(board, aiMove(), PLAYER_TWO);
-		}
-		else if (thisPlayer == PLAYER_ONE) { // player move
-			makeMove(board, humanMove(), PLAYER_ONE);
-		}
-	
-
-		gameFinished = winningMove(board, thisPlayer); // check if player won
-		thisPlayer = (thisPlayer == 1) ? 2 : 1; // switch player
-		turns++; // iterate number of turns
-		cout <<  "turn: "<< turns << endl;
-		outputBoard(board); // print board after successful move
-	}
-	cout << ((thisPlayer == PLAYER_ONE) ? YELLOW + " has won!" : RED + " has won!") << endl;
+	displayBoardAI(board); // print initial board
 	
 }
 
 
-void playAgaintHuman() {
-	outputBoard(board); // print initial board
-	while (!gameFinished) { // while no game over state
-		
-		if (turns >= ROW * COL) { // if max number of turns reached
-			gameFinished = true;
-			cout << "Draw!" << endl;
-			return;
-		}
-		else if (thisPlayer == PLAYER_TWO) { // AI move
-			makeMove(board, humanMove(), PLAYER_TWO);
-		}
-		else if (thisPlayer == PLAYER_ONE) { // player move
-			makeMove(board, humanMove(), PLAYER_ONE);
-		}
-		
-		gameFinished = winningMove(board, thisPlayer); // check if player won
-		thisPlayer = (thisPlayer == 1) ? 2 : 1; // switch player
-		turns++; // iterate number of turns
-		cout <<  "turn: "<< turns << endl;
-		outputBoard(board); // print board after successful move
-	}
+/**
+ * game playing function
+ * loops between player and player as they take turns
+ */
+void playAgainstHuman() {
+	displayBoardHuman(board); // print initial board
 	
 	cout << ((thisPlayer == PLAYER_ONE) ? YELLOW + " has won!" : RED + " has won!") << endl;
 
@@ -120,7 +98,7 @@ int humanMove() {
 	while (true) { // repeat until proper input given
 
 		
-		cout << ((thisPlayer == PLAYER_ONE) ? RED + "'s Turn: " : YELLOW + "'s Turn: ");
+		cout << ((thisPlayer == PLAYER_ONE) ? RED + "'s Turn: " : YELLOW + "'s Turn: "); //checl which player's turn it is
 		cin >> move; // init move as input
 		if (cin.fail()) { // if non-integer
 			cin.clear();
@@ -148,7 +126,9 @@ int humanMove() {
  */
 int aiMove() {
 	cout << "AI is thinking about a move..." << endl;
-	for (int col = 0; col < COL; col++) {
+
+	//if move winning then go for it
+	for (int col = 0; col < COL; col++) {  
         if (board[ROW - 1][col] == 0) { // Check if the column is not full
             // Simulate the move
             for (unsigned int r = 0; r < ROW; r++) {
@@ -187,29 +167,26 @@ int aiMove() {
 
 /**
  * Minimax implementation using alpha-beta pruning
- * @param b - the board to perform MM on
+ * @param b - the board to perform minimax on
  * @param d - the current depth
- * @param alf - alpha
- * @param bet - beta
+ * @param alf - alpha contains maximum score for maximizing ai
+ * @param bet - beta contains minimum score for minimizing player
  * @param p - current player
+ * @return - returns an array of two elements those being the column number at miniMax[1] and the score corresponding to the column in [0]
  */
-array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, int p) {
-	/**
-	 * if we've reached minimal depth allowed by the program
-	 * we need to stop, so force it to return current values
-	 * since a move will never (theoretically) get this deep,
-	 * the column doesn't matter (-1) but we're more interested
-	 * in the score
+array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, int p) { 
+	/*
+	 * when minimum depth is reached exit the recursive function returning the calculated value
 	 *
-	 * as well, we need to take into consideration how many moves
-	 * ie when the board is full
+	 * reduces the depth 
 	 */
 	if (d == 0 || d >= (COL * ROW) - turns) {
 		// get current score to return
 		return array<int, 2>{tabScore(b, PLAYER_TWO), -1};
 	}
+
 	if (p == PLAYER_TWO) { // if AI player
-		array<int, 2> moveSoFar = {MIN_INT, -1};
+		array<int, 2> moveSoFar = {MIN_INT, -1}; //contains the score and column needed for the score
 
 		if (winningMove(b, PLAYER_ONE)) { 
 			return {MIN_INT + 1, -1}; 
@@ -219,11 +196,11 @@ array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, i
 				array<array<int, COL>, ROW> newBoard = copyBoard(b); 
 				makeMove(newBoard, c, p); 
 				int score = miniMax(newBoard, d - 1, alf, bet, PLAYER_ONE)[0]; // find move based on that new board state
-				if (score > moveSoFar[0]) { // if better score, replace it, and consider that best move (for now)
+				if (score > moveSoFar[0]) { //maximizing the score
 					moveSoFar = {score, (int)c};
 				}
 				alf = max(alf, moveSoFar[0]);
-				if (alf >= bet) { break; } // for pruning
+				if (alf >= bet) { break; } // for pruning the remaining branches by breaking out of the loop as the optimum move already found
 			}
 		}
 		return moveSoFar; // return best possible move
@@ -243,7 +220,7 @@ array<int, 2> miniMax(array<array<int, COL>, ROW>& b, int d, int alf, int bet, i
 					moveSoFar = {score, (int)c};
 				}
 				bet = min(bet, moveSoFar[0]);
-				if (alf >= bet) { break; }
+				if (alf >= bet) { break; } // for pruning the remaining branches by breaking out of the loop as the optimum move already found
 			}
 		}
 		return moveSoFar;
@@ -262,8 +239,7 @@ int tabScore(array<array<int, COL>, ROW> b, int p) {
 	array<int, ROW> cs;
 	array<int, 4> set;
 	/**
-	 * horizontal checks, we're looking for sequences of 4
-	 * containing any combination of AI, PLAYER, and empty pieces
+	 * horizontal checks of a combinatiion of any 4 AI, Human or empty
 	 */
 	for (int r = 0; r < ROW; r++) {
 		for (int c = 0; c < COL; c++) {
@@ -321,10 +297,10 @@ int tabScore(array<array<int, COL>, ROW> b, int p) {
  * @return - the score of the row/column
  */
 int scoreSet(array<int, 4> v, int p) {
-	unsigned int good = 0; // points in favor of p
+	unsigned int good = 0; // points of p
 	unsigned int bad = 0; // points against p
-	unsigned int empty = 0; // neutral spots
-	for (unsigned int i = 0; i < v.size(); i++) { // just enumerate how many of each
+	unsigned int empty = 0; // empty spots
+	for (unsigned int i = 0; i < v.size(); i++) { // find how many of each
 		good += (v[i] == p) ? 1 : 0;
 		bad += (v[i] == PLAYER_ONE || v[i] == PLAYER_TWO) ? 1 : 0;
 		empty += (v[i] == 0) ? 1 : 0;
@@ -335,7 +311,7 @@ int scoreSet(array<int, 4> v, int p) {
 }
 
 /**
- * heuristic function helps ai decide what patterns to prioritizw
+ * heuristic function helps ai pick a node
  * 
  * @param g - good points
  * @param b - bad points
@@ -418,11 +394,9 @@ bool winningMove(array<array<int, COL>, ROW>& b, int p) {
  * also used to reset the board to this state
  */
 void initBoard() {
-	for (unsigned int r = 0; r < ROW; r++) {
-		for (unsigned int c = 0; c < COL; c++) {
-			board[r][c] = 0; // make sure board is empty initially
-		}
-	}
+    for (auto& row : board) {
+        row.fill(0);
+    }
 }
 
 /**
@@ -467,3 +441,258 @@ void outputBoard(array<array<int, COL>, ROW>& b)
     }
 	cout << endl;
 }
+
+char showMenu() {
+    sf::RenderWindow window(sf::VideoMode(400, 200), "Connect4 - Choose Game Mode");
+
+    sf::Font font;
+    !font.loadFromFile("arial.ttf");
+
+    sf::Text computerButton;
+    computerButton.setFont(font);
+    computerButton.setString("AI");
+    computerButton.setCharacterSize(24);
+    computerButton.setFillColor(sf::Color::Black);
+    computerButton.setOutlineColor(sf::Color::White);
+    computerButton.setOutlineThickness(2);
+    computerButton.setPosition(50, 100);
+
+    sf::Text humanButton;
+    humanButton.setFont(font);
+    humanButton.setString("Human");
+    humanButton.setCharacterSize(24);
+    humanButton.setFillColor(sf::Color::Black);
+    humanButton.setOutlineColor(sf::Color::White);
+    humanButton.setOutlineThickness(2);
+    humanButton.setPosition(250, 100);
+
+    sf::RectangleShape computerButtonBorder(sf::Vector2f(120, computerButton.getLocalBounds().height + 20));
+    computerButtonBorder.setFillColor(sf::Color(255, 255, 190));
+    computerButtonBorder.setOutlineColor(sf::Color::White);
+    computerButtonBorder.setOutlineThickness(2);
+    computerButtonBorder.setPosition(computerButton.getPosition().x - 40, computerButton.getPosition().y - 10);
+
+    sf::RectangleShape humanButtonBorder(sf::Vector2f(120 ,humanButton.getLocalBounds().height + 20));
+    humanButtonBorder.setFillColor(sf::Color(255, 255, 190));
+    humanButtonBorder.setOutlineColor(sf::Color::White);
+    humanButtonBorder.setOutlineThickness(2);
+    humanButtonBorder.setPosition(humanButton.getPosition().x - 20, humanButton.getPosition().y - 10);
+
+    char selection = '\0';
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    if (computerButtonBorder.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
+                        selection = 'A';
+                        window.close();
+                    } else if (humanButtonBorder.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
+                        selection = 'H';
+                        window.close();
+                    }
+                }
+            }
+        }
+
+        window.clear(sf::Color(128, 128, 128));
+        window.draw(computerButtonBorder);
+        window.draw(computerButton);
+        window.draw(humanButtonBorder);
+        window.draw(humanButton);
+        window.display();
+    }
+
+    return selection;
+}
+
+
+
+void displayBoardHuman(array<array<int, COL>, ROW>& board) {
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Connect4");
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+			if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left && !gameFinished) {
+                    int col = event.mouseButton.x / CELL_SIZE;
+                    if (col >= 0 && col < COL && board[ROW - 1][col] == 0) {
+                        makeMove(board, col, thisPlayer);
+						for (int row = 0; row < ROW; row++) {
+                            for (int col = 0; col < COL; col++) {
+                                sf::CircleShape circle(CELL_SIZE / 2 - 5);
+                                circle.setPosition(col * CELL_SIZE + 5, (ROW - row - 1) * CELL_SIZE + 5);
+
+                                if (board[row][col] == PLAYER_ONE) {
+                                    circle.setFillColor(sf::Color::Yellow);
+                                } else if (board[row][col] == PLAYER_TWO) {
+                                    circle.setFillColor(sf::Color::Red);
+                                } else {
+                                    circle.setFillColor(sf::Color::White);
+                                }
+
+                                window.draw(circle);
+                            }
+                        }
+
+						window.display();
+
+                        gameFinished = winningMove(board, thisPlayer);
+                        if (gameFinished) {
+                            displayPlayerMessage(thisPlayer);
+                        }
+                        thisPlayer = (thisPlayer == PLAYER_ONE) ? PLAYER_TWO : PLAYER_ONE;
+                        turns++;
+                    }
+                }
+            }
+        }
+
+        window.clear(sf::Color::Blue);
+
+        for (int row = 0; row < ROW; row++) {
+            for (int col = 0; col < COL; col++) {
+                sf::CircleShape circle(CELL_SIZE / 2 - 5);
+                circle.setPosition(col * CELL_SIZE + 5, (ROW - row - 1) * CELL_SIZE + 5);
+
+                if (board[row][col] == PLAYER_ONE) {
+                    circle.setFillColor(sf::Color::Yellow);
+                } else if (board[row][col] == PLAYER_TWO) {
+                    circle.setFillColor(sf::Color::Red);
+                } else {
+                    circle.setFillColor(sf::Color::White);
+                }
+
+                window.draw(circle);
+            }
+        }
+
+        window.display();
+    }
+}
+
+
+void displayBoardAI(array<array<int, COL>, ROW>& board) {
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Connect4");
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+			if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left && !gameFinished) {
+                    int col = event.mouseButton.x / CELL_SIZE;
+                    if (col >= 0 && col < COL && board[ROW-1][col] == 0) {
+                        makeMove(board, col, thisPlayer);
+						for (int row = 0; row < ROW; row++) {
+                            for (int col = 0; col < COL; col++) {
+                                sf::CircleShape circle(CELL_SIZE / 2 - 5);
+                                circle.setPosition(col * CELL_SIZE + 5, (ROW - row - 1) * CELL_SIZE + 5);
+
+                                if (board[row][col] == PLAYER_ONE) {
+                                    circle.setFillColor(sf::Color::Yellow);
+                                } else if (board[row][col] == PLAYER_TWO) {
+                                    circle.setFillColor(sf::Color::Red);
+                                } else {
+                                    circle.setFillColor(sf::Color::White);
+                                }
+
+                                window.draw(circle);
+                            }
+                        }
+
+						window.display();
+
+                        gameFinished = winningMove(board, thisPlayer);
+                        if (gameFinished) {
+                            displayPlayerMessage(thisPlayer);
+                        }
+                        thisPlayer = (thisPlayer == PLAYER_ONE) ? PLAYER_TWO : PLAYER_ONE;
+                        turns++;
+                    }
+                }
+            }
+        }
+
+		if (!gameFinished && thisPlayer == PLAYER_TWO) {
+            int col = aiMove();
+            makeMove(board, col, PLAYER_TWO);
+				window.clear(sf::Color::Blue);
+
+        	for (int row = 0; row < ROW; row++) {
+            	for (int col = 0; col < COL; col++) {
+                	sf::CircleShape circle(CELL_SIZE / 2 - 5);
+                	circle.setPosition(col * CELL_SIZE + 5, (ROW - row - 1) * CELL_SIZE + 5);
+
+                	if (board[row][col] == PLAYER_ONE) {
+                    	circle.setFillColor(sf::Color::Yellow);
+                	} else if (board[row][col] == PLAYER_TWO) {
+                    	circle.setFillColor(sf::Color::Red);
+                	} else {
+                    	circle.setFillColor(sf::Color::White);
+                	}
+
+               		 window.draw(circle);
+            	}
+        	}
+
+        	window.display();
+            gameFinished = winningMove(board, PLAYER_TWO);
+            if (gameFinished) {
+                displayPlayerMessage(PLAYER_TWO);
+            } else if (turns >= ROW * COL) {
+                gameFinished = true;
+                displayPlayerMessage(0); // Draw message
+            }
+            thisPlayer = PLAYER_ONE;
+            turns++;
+        }
+
+	}
+}
+
+
+void displayPlayerMessage(int player) {
+    sf::RenderWindow window(sf::VideoMode(300, 100), "Player Message");
+
+    sf::Font font;
+	font.loadFromFile("arial.ttf");
+
+    sf::Text message;
+    message.setFont(font);
+    message.setCharacterSize(24);
+    message.setFillColor(sf::Color::Black);
+    message.setOutlineColor(sf::Color::White);
+    message.setOutlineThickness(2);
+    message.setPosition(50, 30);
+
+    if (player == PLAYER_ONE) {
+        message.setString("Player Yellow Wins!");
+    } else if (player == PLAYER_TWO) {
+        message.setString("Player Red Wins!");
+    } else {
+        message.setString("It's a Draw!");
+    }
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        window.clear(sf::Color(128, 128, 128));
+        window.draw(message);
+        window.display();
+    }
+}
+
+#endif // CF_SFML_H
