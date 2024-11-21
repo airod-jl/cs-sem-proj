@@ -1,7 +1,7 @@
 #ifndef CF_SFML_H
 #define CF_SFML_H
 
-#include "cfSFML.h"
+#include "cf.h"
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <array>
@@ -25,7 +25,7 @@ const int CELL_SIZE = 100;
 const int WINDOW_WIDTH = COL * CELL_SIZE;
 const int WINDOW_HEIGHT = ROW * CELL_SIZE;
 
-extern bool gameFinished;
+extern bool gameFinished;     //extern modifier used so the same variable is used and updated when the header file included in any source file
 extern int turns;
 extern int thisPlayer;
 extern array<array<int, COL>, ROW> board;
@@ -46,17 +46,17 @@ void displayBoardAI(array<array<int, COL>, ROW>& board);
 void displayPlayerMessage(int player);
 
 bool gameFinished = false; // flag for if game is over
-int turns = 0; // count for number of turns
+int turns = 1; // count for number of turns
 int thisPlayer = PLAYER_ONE; // current player
 
 array<array<int, COL>, ROW> board; // board declaration
 
 /**
- * game playing function
+ * game playing function"
  * loops between player and ai as they take turns
  */
 void playAgainstAi() {
-	displayBoardAI(board); // print initial board
+	displayBoardAI(board); // open gui window and take input from there
 	
 }
 
@@ -66,7 +66,7 @@ void playAgainstAi() {
  * loops between player and player as they take turns
  */
 void playAgainstHuman() {
-	displayBoardHuman(board); // print initial board
+	displayBoardHuman(board); // open gui window and take input from there
 	
 	cout << ((thisPlayer == PLAYER_ONE) ? YELLOW + " has won!" : RED + " has won!") << endl;
 
@@ -401,7 +401,8 @@ void initBoard() {
 
 /**
  * function to copy board state to another 2D vector
- * ie. make a duplicate board; used for mutating copies rather
+ * ie. make a duplicate board
+ * 
  * than the original
  * @param b - the board to copy
  * @return - said copy
@@ -446,7 +447,7 @@ char showMenu() {
     sf::RenderWindow window(sf::VideoMode(400, 200), "Connect4 - Choose Game Mode");
 
     sf::Font font;
-    !font.loadFromFile("arial.ttf");
+    font.loadFromFile("arial.ttf");
 
     sf::Text computerButton;
     computerButton.setFont(font);
@@ -546,10 +547,14 @@ void displayBoardHuman(array<array<int, COL>, ROW>& board) {
 
                         gameFinished = winningMove(board, thisPlayer);
                         if (gameFinished) {
-                            displayPlayerMessage(thisPlayer);
+                            displayPlayerMessage(thisPlayer); //player win message
                         }
+						else if (turns >= ROW * COL) {
+                			gameFinished = true;
+               				displayPlayerMessage(0); // Draw message
+            				}
                         thisPlayer = (thisPlayer == PLAYER_ONE) ? PLAYER_TWO : PLAYER_ONE;
-                        turns++;
+                        cout << turns++ << endl;
                     }
                 }
             }
@@ -653,7 +658,7 @@ void displayBoardAI(array<array<int, COL>, ROW>& board) {
                 displayPlayerMessage(0); // Draw message
             }
             thisPlayer = PLAYER_ONE;
-            turns++;
+            cout << turns++;
         }
 
 	}
