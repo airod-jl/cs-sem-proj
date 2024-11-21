@@ -42,5 +42,5 @@
 
 
 ## Flowchart
+**General flow of the code.**
 ![Flowchart](flowchart.jpg)
-**Showing the general flow of the code.**
